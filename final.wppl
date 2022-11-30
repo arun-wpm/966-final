@@ -1,13 +1,26 @@
-// card is not Categorical: once you take away a card the probabilities change
-// todo: change card
-var card = Categorical({vs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], ps: [1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 3/13]})
+// why globalStore?
+// Syntax error: You tried to assign to a field of cardprobs, but you can only assign to fields of globalStore
+// so https://webppl.readthedocs.io/en/master/globalstore.html
+// todo: bruh why is webppl so dumb (debug globalStore)
+globalStore.cardnums = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+globalStore.cardprobs = [1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 3/13]
+var allcards = Categorical({vs: globalStore.cardnums, ps: globalStore.cardprobs})
+
+// dealer draws two cards
 var dealer = function() {
-    var draw1 = sample(card)
-    var draw2 = sample(card)
+    var draw1 = sample(allcards)
+    // take the first card out of the pile
+    globalStore.cardprobs[draw1 - 1] -= 1/52
+    var draw2 = sample(allcards)
+    // take the second card out of the pile
+    globalStore.cardprobs[draw2 - 1] -= 1/52
     return [draw1, draw2]
 }
+
+// generate a sequence of n draws
 var generateFrom = function(sequenceSoFar, n) {
-  var draw = sample(card)
+  var draw = sample(allcards)
+  globalStore.cardprobs[draw - 1] -= 1/52
   var sequence = sequenceSoFar.concat(draw)
   if(sequence.length == n) {
     return sequence
@@ -18,6 +31,7 @@ var generateFrom = function(sequenceSoFar, n) {
 
 var dealerSequence = dealer()
 print("Dealer: " + dealerSequence)
+// todo: make some strategy and priors and not just stop at 3
 var sequence = generateFrom([], 3) // [] is an empty list
 print("Sequence: " + sequence)
 
