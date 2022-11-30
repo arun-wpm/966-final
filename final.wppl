@@ -1,0 +1,27 @@
+// card is not Categorical: once you take away a card the probabilities change
+// todo: change card
+var card = Categorical({vs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], ps: [1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 3/13]})
+var dealer = function() {
+    var draw1 = sample(card)
+    var draw2 = sample(card)
+    return [draw1, draw2]
+}
+var generateFrom = function(sequenceSoFar, n) {
+  var draw = sample(card)
+  var sequence = sequenceSoFar.concat(draw)
+  if(sequence.length == n) {
+    return sequence
+  } else {
+    return generateFrom(sequence, n)
+  }
+}
+
+var dealerSequence = dealer()
+print("Dealer: " + dealerSequence)
+var sequence = generateFrom([], 3) // [] is an empty list
+print("Sequence: " + sequence)
+
+var score = sum(sequence)
+print("Score: " + score)
+var win = (sum(sequence) <= 21 && sum(sequence) > sum(dealerSequence)) ? 'True' : 'False'
+print("Win: " + win)
