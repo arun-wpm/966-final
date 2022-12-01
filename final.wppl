@@ -1,41 +1,120 @@
 // why globalStore?
 // Syntax error: You tried to assign to a field of cardprobs, but you can only assign to fields of globalStore
 // so https://webppl.readthedocs.io/en/master/globalstore.html
-// todo: bruh why is webppl so dumb (debug globalStore)
-globalStore.cardnums = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-globalStore.cardprobs = [1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 3/13]
+
+// deck of cards = numbers + their probabilities
+var initCards = function() {
+  globalStore.cardnums = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+  globalStore.cardprobs = [1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 3/13]
+}
+initCards()
 var allcards = Categorical({vs: globalStore.cardnums, ps: globalStore.cardprobs})
+
+// a function that returns a function that gives new probabilities given card number
+var pullOutCard = function(pullOutNum) {
+  return function(num, prob) {
+    return (num == pullOutNum) ? prob - 1/52 : prob
+  }
+}
 
 // dealer draws two cards
 var dealer = function() {
     var draw1 = sample(allcards)
     // take the first card out of the pile
-    globalStore.cardprobs[draw1 - 1] -= 1/52
-    var draw2 = sample(allcards)
+    globalStore.cardprobs = map2(pullOutCard(draw1), globalStore.cardnums, globalStore.cardprobs)
+    var draw2 = sample(Categorical({vs: globalStore.cardnums, ps: globalStore.cardprobs}))
     // take the second card out of the pile
-    globalStore.cardprobs[draw2 - 1] -= 1/52
+    globalStore.cardprobs = map2(pullOutCard(draw2), globalStore.cardnums, globalStore.cardprobs)
     return [draw1, draw2]
 }
 
-// generate a sequence of n draws
-var generateFrom = function(sequenceSoFar, n) {
-  var draw = sample(allcards)
-  globalStore.cardprobs[draw - 1] -= 1/52
+// generate a sequence of at most n draws
+var generateFrom = function(sequenceSoFar, limitN) {
+  // take a card out of the pile
+  var draw = sample(Categorical({vs: globalStore.cardnums, ps: globalStore.cardprobs}))
+  globalStore.cardprobs = map2(pullOutCard(draw), globalStore.cardnums, globalStore.cardprobs)
+
+  // add it to the sequence
   var sequence = sequenceSoFar.concat(draw)
-  if(sequence.length == n) {
+
+  // stop and recursion conditions
+  if(sequence.length == limitN || sum(sequence) > 21) {
     return sequence
   } else {
-    return generateFrom(sequence, n)
+    return generateFrom(sequence, limitN)
   }
 }
 
+/**
+ * GAMEPLAY
+ */
+initCards()
 var dealerSequence = dealer()
 print("Dealer: " + dealerSequence)
-// todo: make some strategy and priors and not just stop at 3
-var sequence = generateFrom([], 3) // [] is an empty list
+
+// todo: make some strategy and priors and not just stop at n cards
+var sequence = generateFrom([], 2) // [] is an empty list
 print("Sequence: " + sequence)
 
 var score = sum(sequence)
 print("Score: " + score)
+
 var win = (sum(sequence) <= 21 && sum(sequence) > sum(dealerSequence)) ? 'True' : 'False'
 print("Win: " + win)
+
+/**
+ * MODELS
+ */
+// distribution of sum of cards after 3 draws
+var model = function() {
+  initCards()
+  sum(generateFrom([], 3))
+}
+viz(Infer({method:'enumerate'}, model))
+
+// distribution of sum of cards given win and three draws
+var model = function() {
+  initCards()
+  var dealerSequence = dealer()
+  var sequence = generateFrom([], 3)
+  
+  var win = (sum(sequence) <= 21 && sum(sequence) > sum(dealerSequence)) ? 'True' : 'False'
+  condition(win == 'True')
+  sum(sequence)
+}
+viz(Infer({method:'enumerate'}, model))
+
+// distribution of sum of cards given win and two draws
+var model = function() {
+  initCards()
+  var dealerSequence = dealer()
+  var sequence = generateFrom([], 2)
+  
+  var win = (sum(sequence) <= 21 && sum(sequence) > sum(dealerSequence)) ? 'True' : 'False'
+  condition(win == 'True')
+  sum(sequence)
+}
+viz(Infer({method:'enumerate'}, model))
+
+// probability of winning given two draws
+var model = function() {
+  initCards()
+  var dealerSequence = dealer()
+  var sequence = generateFrom([], 2)
+  
+  var win = (sum(sequence) <= 21 && sum(sequence) > sum(dealerSequence)) ? 'True' : 'False'
+  win
+}
+viz(Infer({method:'enumerate'}, model))
+
+// distribution of winning and sum of cards given two draws
+var model = function() {
+  initCards()
+  var dealerSequence = dealer()
+  var sequence = generateFrom([], 2)
+  
+  var win = (sum(sequence) <= 21 && sum(sequence) > sum(dealerSequence)) ? 'True' : 'False'
+  // lol just weird workaround
+  win + (sum(sequence) < 10 ? '0' + sum(sequence) : sum(sequence))
+}
+viz(Infer({method:'enumerate'}, model))
