@@ -13,7 +13,7 @@ var allcards = Categorical({vs: globalStore.cardnums, ps: globalStore.cardprobs}
 // a function that returns a function that gives new probabilities given card number
 var pullOutCard = function(pullOutNum) {
   return function(num, prob) {
-    return (num == pullOutNum) ? prob - 1/52 : prob
+    return (num == pullOutNum && prob > 0) ? prob - 1/52 : prob
   }
 }
 
@@ -29,20 +29,52 @@ var dealer = function() {
 }
 
 // generate a sequence of at most n draws
-var generateFrom = function(sequenceSoFar, limitN) {
-  // take a card out of the pile
-  var draw = sample(Categorical({vs: globalStore.cardnums, ps: globalStore.cardprobs}))
-  globalStore.cardprobs = map2(pullOutCard(draw), globalStore.cardnums, globalStore.cardprobs)
-
-  // add it to the sequence
-  var sequence = sequenceSoFar.concat(draw)
-
-  // stop and recursion conditions
-  if(sequence.length == limitN || sum(sequence) > 21) {
-    return sequence
-  } else {
-    return generateFrom(sequence, limitN)
+var generateFrom = function(sequenceSoFar, strategy) {
+  // player's priors determine probability of draw
+  var pDraw = strategy(sequenceSoFar)
+  var doDraw = flip(pDraw)
+  if (!doDraw) {
+    // stop drawing
+    return sequenceSoFar
   }
+  else {
+    // take a card out of the pile
+    var draw = sample(Categorical({vs: globalStore.cardnums, ps: globalStore.cardprobs}))
+    globalStore.cardprobs = map2(pullOutCard(draw), globalStore.cardnums, globalStore.cardprobs)
+
+    // add it to the sequence
+    var sequence = sequenceSoFar.concat(draw)
+
+    // game's stop and recursion conditions
+    if(sum(sequence) > 21) {
+      return sequence
+    } else {
+      return generateFrom(sequence, strategy)
+    }
+  }
+}
+
+/**
+ * STRATEGIES: functions that determine probability of draw given sequence so far
+ */
+var drawTwoStrategy = function(sequence) {
+  // just draw until i have two cards
+  return (sequence.length < 2) ? 1 : 0
+}
+
+var drawThreeStrategy = function(sequence) {
+  // just draw until i have three cards
+  return (sequence.length < 3) ? 1 : 0
+}
+
+var lengthStrategy = function(sequence) {
+  // less likely to draw the more cards i have
+  return 1 / (sequence.length + 1)
+}
+
+var sumStrategy = function(sequence) {
+  // less likely to draw the closer i am to 21
+  return (sum(sequence) < 21) ? 1 - sum(sequence) / 21 : 0
 }
 
 /**
@@ -52,8 +84,7 @@ initCards()
 var dealerSequence = dealer()
 print("Dealer: " + dealerSequence)
 
-// todo: make some strategy and priors and not just stop at n cards
-var sequence = generateFrom([], 2) // [] is an empty list
+var sequence = generateFrom([], drawTwoStrategy) // [] is an empty list
 print("Sequence: " + sequence)
 
 var score = sum(sequence)
@@ -68,53 +99,122 @@ print("Win: " + win)
 // distribution of sum of cards after 3 draws
 var model = function() {
   initCards()
-  sum(generateFrom([], 3))
+  sum(generateFrom([], drawThreeStrategy))
 }
-viz(Infer({method:'enumerate'}, model))
+viz(Infer({method: 'MCMC', samples: 50000}, model))
 
 // distribution of sum of cards given win and three draws
 var model = function() {
   initCards()
   var dealerSequence = dealer()
-  var sequence = generateFrom([], 3)
+  var sequence = generateFrom([], drawThreeStrategy)
   
   var win = (sum(sequence) <= 21 && sum(sequence) > sum(dealerSequence)) ? 'True' : 'False'
   condition(win == 'True')
   sum(sequence)
 }
-viz(Infer({method:'enumerate'}, model))
+viz(Infer({method: 'MCMC', samples: 50000}, model))
 
 // distribution of sum of cards given win and two draws
 var model = function() {
   initCards()
   var dealerSequence = dealer()
-  var sequence = generateFrom([], 2)
+  var sequence = generateFrom([], drawTwoStrategy)
   
   var win = (sum(sequence) <= 21 && sum(sequence) > sum(dealerSequence)) ? 'True' : 'False'
   condition(win == 'True')
   sum(sequence)
 }
-viz(Infer({method:'enumerate'}, model))
+viz(Infer({method: 'MCMC', samples: 50000}, model))
 
 // probability of winning given two draws
 var model = function() {
   initCards()
   var dealerSequence = dealer()
-  var sequence = generateFrom([], 2)
+  var sequence = generateFrom([], drawTwoStrategy)
   
   var win = (sum(sequence) <= 21 && sum(sequence) > sum(dealerSequence)) ? 'True' : 'False'
   win
 }
-viz(Infer({method:'enumerate'}, model))
+viz(Infer({method: 'MCMC', samples: 50000}, model))
 
 // distribution of winning and sum of cards given two draws
 var model = function() {
   initCards()
   var dealerSequence = dealer()
-  var sequence = generateFrom([], 2)
+  var sequence = generateFrom([], drawTwoStrategy)
   
   var win = (sum(sequence) <= 21 && sum(sequence) > sum(dealerSequence)) ? 'True' : 'False'
-  // lol just weird workaround
+  // lol just weird workaround for graph plotting
   win + (sum(sequence) < 10 ? '0' + sum(sequence) : sum(sequence))
 }
-viz(Infer({method:'enumerate'}, model))
+viz(Infer({method: 'MCMC', samples: 50000}, model))
+
+// probability of winning given three draws
+var model = function() {
+  initCards()
+  var dealerSequence = dealer()
+  var sequence = generateFrom([], drawThreeStrategy)
+  
+  var win = (sum(sequence) <= 21 && sum(sequence) > sum(dealerSequence)) ? 'True' : 'False'
+  win
+}
+viz(Infer({method: 'MCMC', samples: 50000}, model))
+
+// distribution of winning and sum of cards given three draws
+var model = function() {
+  initCards()
+  var dealerSequence = dealer()
+  var sequence = generateFrom([], drawThreeStrategy)
+  
+  var win = (sum(sequence) <= 21 && sum(sequence) > sum(dealerSequence)) ? 'True' : 'False'
+  // lol just weird workaround for graph plotting
+  win + (sum(sequence) < 10 ? '0' + sum(sequence) : sum(sequence))
+}
+viz(Infer({method: 'MCMC', samples: 50000}, model))
+
+// probability of winning given length strategy
+var model = function() {
+  initCards()
+  var dealerSequence = dealer()
+  var sequence = generateFrom([], lengthStrategy)
+  
+  var win = (sum(sequence) <= 21 && sum(sequence) > sum(dealerSequence)) ? 'True' : 'False'
+  win
+}
+viz(Infer({method: 'MCMC', samples: 50000}, model))
+
+// distribution of winning and sum of cards given length strategy
+var model = function() {
+  initCards()
+  var dealerSequence = dealer()
+  var sequence = generateFrom([], lengthStrategy)
+  
+  var win = (sum(sequence) <= 21 && sum(sequence) > sum(dealerSequence)) ? 'True' : 'False'
+  // lol just weird workaround for graph plotting
+  win + (sum(sequence) < 10 ? '0' + sum(sequence) : sum(sequence))
+}
+viz(Infer({method: 'MCMC', samples: 50000}, model))
+
+// probability of winning given sum strategy
+var model = function() {
+  initCards()
+  var dealerSequence = dealer()
+  var sequence = generateFrom([], sumStrategy)
+  
+  var win = (sum(sequence) <= 21 && sum(sequence) > sum(dealerSequence)) ? 'True' : 'False'
+  win
+}
+viz(Infer({method: 'MCMC', samples: 50000}, model))
+
+// distribution of winning and sum of cards given sum strategy
+var model = function() {
+  initCards()
+  var dealerSequence = dealer()
+  var sequence = generateFrom([], sumStrategy)
+  
+  var win = (sum(sequence) <= 21 && sum(sequence) > sum(dealerSequence)) ? 'True' : 'False'
+  // lol just weird workaround for graph plotting
+  win + (sum(sequence) < 10 ? '0' + sum(sequence) : sum(sequence))
+}
+viz(Infer({method: 'MCMC', samples: 50000}, model))
