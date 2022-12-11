@@ -3,9 +3,11 @@
 // so https://webppl.readthedocs.io/en/master/globalstore.html
 
 // deck of cards = numbers + their probabilities
+// 10, J, Q, K count as 10
+// A counts as 11 (for now)
 var initCards = function() {
-  globalStore.cardnums = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-  globalStore.cardprobs = [1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 3/13]
+  globalStore.cardnums = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+  globalStore.cardprobs = [1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 1/13, 4/13, 1/13]
 }
 initCards()
 var allcards = Categorical({vs: globalStore.cardnums, ps: globalStore.cardprobs})
@@ -18,8 +20,8 @@ var pullOutCard = function(pullOutNum) {
 }
 
 // dealer draws two cards
-var dealer = function() {
-    var draw1 = sample(allcards)
+var getTwoCards = function() {
+    var draw1 = sample(Categorical({vs: globalStore.cardnums, ps: globalStore.cardprobs}))
     // take the first card out of the pile
     globalStore.cardprobs = map2(pullOutCard(draw1), globalStore.cardnums, globalStore.cardprobs)
     var draw2 = sample(Categorical({vs: globalStore.cardnums, ps: globalStore.cardprobs}))
@@ -54,6 +56,16 @@ var generateFrom = function(sequenceSoFar, strategy) {
   }
 }
 
+var score = function(sequence) {
+  var sumSeq = sum(sequence)
+  if (sumSeq > 21) {
+    return reduce(function(x, acc) { return (x == 11) ? acc + 1 : acc + x }, 0, sequence)
+  }
+  else {
+    return sumSeq
+  }
+}
+
 /**
  * STRATEGIES: functions that determine probability of draw given sequence so far
  */
@@ -74,147 +86,241 @@ var lengthStrategy = function(sequence) {
 
 var sumStrategy = function(sequence) {
   // less likely to draw the closer i am to 21
-  return (sum(sequence) < 21) ? 1 - sum(sequence) / 21 : 0
+  return (score(sequence) < 21) ? 1 - score(sequence) / 21 : 0
+}
+
+var hardSeventeenStrategy = function(sequence) {
+  // stop hitting after sum gets to 17 or more
+  return (score(sequence) < 17) ? 1 : 0
+}
+
+// TODO: softSeventeenStrategy
+
+var thresholdStrategy = function(threshold) {
+  return function(sequence) {
+    return (score(sequence) < threshold) ? 1 : 0
+  }
 }
 
 /**
  * GAMEPLAY
  */
 initCards()
-var dealerSequence = dealer()
+var dealerSequence = getTwoCards()
 print("Dealer: " + dealerSequence)
 
-var sequence = generateFrom([], drawTwoStrategy) // [] is an empty list
-print("Sequence: " + sequence)
+var playerSequence = getTwoCards()
+var playerEndSequence = generateFrom(playerSequence, drawThreeStrategy)
+print("Sequence: " + playerEndSequence)
 
-var score = sum(sequence)
-print("Score: " + score)
+var dealerEndSequence = generateFrom(dealerSequence, hardSeventeenStrategy)
+print("Dealer: " + dealerEndSequence)
 
-var win = (sum(sequence) <= 21 && sum(sequence) > sum(dealerSequence)) ? 'True' : 'False'
-print("Win: " + win)
+var playerScore = score(playerEndSequence)
+var dealerScore = score(dealerEndSequence)
+print("Score: " + playerScore + " vs. " + dealerScore)
+
+var win = function(playerEndSequence, dealerEndSequence) {
+  return (
+    score(playerEndSequence) <= 21 && // player doesn't bust
+    (
+      score(playerEndSequence) > score(dealerEndSequence) || // player's score is higher
+      score(dealerEndSequence) > 21 // dealer busts
+    )
+  ) ? 'True' : 'False'
+}
+print("Win: " + win(playerEndSequence, dealerEndSequence))
 
 /**
  * MODELS
  */
-// distribution of sum of cards after 3 draws
+// distribution of scores after a hit (3 cards total)
 var model = function() {
   initCards()
-  sum(generateFrom([], drawThreeStrategy))
+  var dealerSequence = getTwoCards()
+  var playerSequence = getTwoCards()
+  score(generateFrom(playerSequence, drawThreeStrategy))
 }
-viz(Infer({method: 'MCMC', samples: 50000}, model))
+viz(Infer({method: 'MCMC', samples: 200000}, model))
 
-// distribution of sum of cards given win and three draws
+// distribution of scores given win and three draws
 var model = function() {
   initCards()
-  var dealerSequence = dealer()
-  var sequence = generateFrom([], drawThreeStrategy)
+  var dealerSequence = getTwoCards()
+  var playerSequence = getTwoCards()
+  var playerEndSequence = generateFrom(playerSequence, drawThreeStrategy)
+  var dealerEndSequence = generateFrom(dealerSequence, hardSeventeenStrategy)
   
-  var win = (sum(sequence) <= 21 && sum(sequence) > sum(dealerSequence)) ? 'True' : 'False'
-  condition(win == 'True')
-  sum(sequence)
+  var winGame = win(playerEndSequence, dealerEndSequence)
+  condition(winGame == 'True')
+  score(playerEndSequence)
 }
-viz(Infer({method: 'MCMC', samples: 50000}, model))
+viz(Infer({method: 'MCMC', samples: 200000}, model))
 
-// distribution of sum of cards given win and two draws
+// distribution of scores given win and never hitting (2 cards total)
 var model = function() {
   initCards()
-  var dealerSequence = dealer()
-  var sequence = generateFrom([], drawTwoStrategy)
+  var dealerSequence = getTwoCards()
+  var playerSequence = getTwoCards()
+  var playerEndSequence = generateFrom(playerSequence, drawTwoStrategy)
+  var dealerEndSequence = generateFrom(dealerSequence, hardSeventeenStrategy)
   
-  var win = (sum(sequence) <= 21 && sum(sequence) > sum(dealerSequence)) ? 'True' : 'False'
-  condition(win == 'True')
-  sum(sequence)
+  var winGame = win(playerEndSequence, dealerEndSequence)
+  condition(winGame == 'True')
+  score(playerEndSequence)
 }
-viz(Infer({method: 'MCMC', samples: 50000}, model))
+viz(Infer({method: 'MCMC', samples: 200000}, model))
 
 // probability of winning given two draws
 var model = function() {
   initCards()
-  var dealerSequence = dealer()
-  var sequence = generateFrom([], drawTwoStrategy)
+  var dealerSequence = getTwoCards()
+  var playerSequence = getTwoCards()
+  var playerEndSequence = generateFrom(playerSequence, drawTwoStrategy)
+  var dealerEndSequence = generateFrom(dealerSequence, hardSeventeenStrategy)
   
-  var win = (sum(sequence) <= 21 && sum(sequence) > sum(dealerSequence)) ? 'True' : 'False'
-  win
+  var winGame = win(playerEndSequence, dealerEndSequence)
+  winGame
 }
-viz(Infer({method: 'MCMC', samples: 50000}, model))
+viz(Infer({method: 'MCMC', samples: 200000}, model))
 
-// distribution of winning and sum of cards given two draws
+// distribution of winning and score given two draws
 var model = function() {
   initCards()
-  var dealerSequence = dealer()
-  var sequence = generateFrom([], drawTwoStrategy)
+  var dealerSequence = getTwoCards()
+  var playerSequence = getTwoCards()
+  var playerEndSequence = generateFrom(playerSequence, drawTwoStrategy)
+  var dealerEndSequence = generateFrom(dealerSequence, hardSeventeenStrategy)
   
-  var win = (sum(sequence) <= 21 && sum(sequence) > sum(dealerSequence)) ? 'True' : 'False'
+  var winGame = win(playerEndSequence, dealerEndSequence)
+  var playerScore = score(playerEndSequence)
   // lol just weird workaround for graph plotting
-  win + (sum(sequence) < 10 ? '0' + sum(sequence) : sum(sequence))
+  winGame + (playerScore < 10 ? '0' + playerScore : playerScore)
 }
-viz(Infer({method: 'MCMC', samples: 50000}, model))
+viz(Infer({method: 'MCMC', samples: 200000}, model))
 
 // probability of winning given three draws
 var model = function() {
   initCards()
-  var dealerSequence = dealer()
-  var sequence = generateFrom([], drawThreeStrategy)
+  var dealerSequence = getTwoCards()
+  var playerSequence = getTwoCards()
+  var playerEndSequence = generateFrom(playerSequence, drawThreeStrategy)
+  var dealerEndSequence = generateFrom(dealerSequence, hardSeventeenStrategy)
   
-  var win = (sum(sequence) <= 21 && sum(sequence) > sum(dealerSequence)) ? 'True' : 'False'
-  win
+  var winGame = win(playerEndSequence, dealerEndSequence)
+  winGame
 }
-viz(Infer({method: 'MCMC', samples: 50000}, model))
+viz(Infer({method: 'MCMC', samples: 200000}, model))
 
 // distribution of winning and sum of cards given three draws
 var model = function() {
   initCards()
-  var dealerSequence = dealer()
-  var sequence = generateFrom([], drawThreeStrategy)
+  var dealerSequence = getTwoCards()
+  var playerSequence = getTwoCards()
+  var playerEndSequence = generateFrom(playerSequence, drawThreeStrategy)
+  var dealerEndSequence = generateFrom(dealerSequence, hardSeventeenStrategy)
   
-  var win = (sum(sequence) <= 21 && sum(sequence) > sum(dealerSequence)) ? 'True' : 'False'
+  var winGame = win(playerEndSequence, dealerEndSequence)
+  var playerScore = score(playerEndSequence)
   // lol just weird workaround for graph plotting
-  win + (sum(sequence) < 10 ? '0' + sum(sequence) : sum(sequence))
+  winGame + (playerScore < 10 ? '0' + playerScore : playerScore)
 }
-viz(Infer({method: 'MCMC', samples: 50000}, model))
+viz(Infer({method: 'MCMC', samples: 200000}, model))
 
 // probability of winning given length strategy
 var model = function() {
   initCards()
-  var dealerSequence = dealer()
-  var sequence = generateFrom([], lengthStrategy)
+  var dealerSequence = getTwoCards()
+  var playerSequence = getTwoCards()
+  var playerEndSequence = generateFrom(playerSequence, lengthStrategy)
+  var dealerEndSequence = generateFrom(dealerSequence, hardSeventeenStrategy)
   
-  var win = (sum(sequence) <= 21 && sum(sequence) > sum(dealerSequence)) ? 'True' : 'False'
-  win
+  var winGame = win(playerEndSequence, dealerEndSequence)
+  winGame
 }
-viz(Infer({method: 'MCMC', samples: 50000}, model))
+viz(Infer({method: 'MCMC', samples: 200000}, model))
 
 // distribution of winning and sum of cards given length strategy
 var model = function() {
   initCards()
-  var dealerSequence = dealer()
-  var sequence = generateFrom([], lengthStrategy)
+  var dealerSequence = getTwoCards()
+  var playerSequence = getTwoCards()
+  var playerEndSequence = generateFrom(playerSequence, lengthStrategy)
+  var dealerEndSequence = generateFrom(dealerSequence, hardSeventeenStrategy)
   
-  var win = (sum(sequence) <= 21 && sum(sequence) > sum(dealerSequence)) ? 'True' : 'False'
+  var winGame = win(playerEndSequence, dealerEndSequence)
+  var playerScore = score(playerEndSequence)
   // lol just weird workaround for graph plotting
-  win + (sum(sequence) < 10 ? '0' + sum(sequence) : sum(sequence))
+  winGame + (playerScore < 10 ? '0' + playerScore : playerScore)
 }
-viz(Infer({method: 'MCMC', samples: 50000}, model))
+viz(Infer({method: 'MCMC', samples: 200000}, model))
 
 // probability of winning given sum strategy
 var model = function() {
   initCards()
-  var dealerSequence = dealer()
-  var sequence = generateFrom([], sumStrategy)
+  var dealerSequence = getTwoCards()
+  var playerSequence = getTwoCards()
+  var playerEndSequence = generateFrom(playerSequence, sumStrategy)
+  var dealerEndSequence = generateFrom(dealerSequence, hardSeventeenStrategy)
   
-  var win = (sum(sequence) <= 21 && sum(sequence) > sum(dealerSequence)) ? 'True' : 'False'
-  win
+  var winGame = win(playerEndSequence, dealerEndSequence)
+  winGame
 }
-viz(Infer({method: 'MCMC', samples: 50000}, model))
+viz(Infer({method: 'MCMC', samples: 200000}, model))
 
 // distribution of winning and sum of cards given sum strategy
 var model = function() {
   initCards()
-  var dealerSequence = dealer()
-  var sequence = generateFrom([], sumStrategy)
+  var dealerSequence = getTwoCards()
+  var playerSequence = getTwoCards()
+  var playerEndSequence = generateFrom(playerSequence, sumStrategy)
+  var dealerEndSequence = generateFrom(dealerSequence, hardSeventeenStrategy)
   
-  var win = (sum(sequence) <= 21 && sum(sequence) > sum(dealerSequence)) ? 'True' : 'False'
+  var winGame = win(playerEndSequence, dealerEndSequence)
+  var playerScore = score(playerEndSequence)
   // lol just weird workaround for graph plotting
-  win + (sum(sequence) < 10 ? '0' + sum(sequence) : sum(sequence))
+  winGame + (playerScore < 10 ? '0' + playerScore : playerScore)
 }
-viz(Infer({method: 'MCMC', samples: 50000}, model))
+viz(Infer({method: 'MCMC', samples: 200000}, model))
+
+// TODO: plot graph for different thresholds
+// probability of winning given threshold strategy at 17
+var model = function() {
+  initCards()
+  var dealerSequence = getTwoCards()
+  var playerSequence = getTwoCards()
+  var playerEndSequence = generateFrom(playerSequence, thresholdStrategy(17))
+  var dealerEndSequence = generateFrom(dealerSequence, hardSeventeenStrategy)
+  
+  var winGame = win(playerEndSequence, dealerEndSequence)
+  winGame
+}
+viz(Infer({method: 'MCMC', samples: 200000}, model))
+
+var model = function() {
+  initCards()
+  var dealerSequence = getTwoCards()
+  var playerSequence = getTwoCards()
+  var playerEndSequence = generateFrom(playerSequence, thresholdStrategy(17))
+  var dealerEndSequence = generateFrom(dealerSequence, hardSeventeenStrategy)
+  
+  var winGame = win(playerEndSequence, dealerEndSequence)
+  var playerScore = score(playerEndSequence)
+  playerScore
+}
+viz(Infer({method: 'MCMC', samples: 200000}, model))
+
+// distribution of winning and sum of cards given threshold strategy at 17
+var model = function() {
+  initCards()
+  var dealerSequence = getTwoCards()
+  var playerSequence = getTwoCards()
+  var playerEndSequence = generateFrom(playerSequence, thresholdStrategy(17))
+  var dealerEndSequence = generateFrom(dealerSequence, hardSeventeenStrategy)
+  
+  var winGame = win(playerEndSequence, dealerEndSequence)
+  var playerScore = score(playerEndSequence)
+  // lol just weird workaround for graph plotting
+  winGame + (playerScore < 10 ? '0' + playerScore : playerScore)
+}
+viz(Infer({method: 'MCMC', samples: 200000}, model))
