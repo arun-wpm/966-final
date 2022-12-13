@@ -48,7 +48,7 @@ var generateFrom = function(sequenceSoFar, strategy) {
     var sequence = sequenceSoFar.concat(draw)
 
     // game's stop and recursion conditions
-    if(sum(sequence) > 21) {
+    if(score(sequence) > 21) {
       return sequence
     } else {
       return generateFrom(sequence, strategy)
@@ -94,7 +94,10 @@ var hardSeventeenStrategy = function(sequence) {
   return (score(sequence) < 17) ? 1 : 0
 }
 
-// TODO: softSeventeenStrategy
+var softSeventeenStrategy = function(sequence) {
+  var softScore = reduce(function(x, acc) { return (x == 11) ? acc + 1 : acc + x }, 0, sequence)
+  return (score(sequence) < 17 || (score(sequence) == 17 && softScore < 1)) ? 1 : 0
+}
 
 var thresholdStrategy = function(threshold) {
   return function(sequence) {
@@ -141,7 +144,7 @@ var model = function() {
   var playerSequence = getTwoCards()
   score(generateFrom(playerSequence, drawThreeStrategy))
 }
-viz(Infer({method: 'MCMC', samples: 200000}, model))
+viz(Infer({method: 'forward', samples: 100000}, model))
 
 // distribution of scores given win and three draws
 var model = function() {
@@ -155,7 +158,7 @@ var model = function() {
   condition(winGame == 'True')
   score(playerEndSequence)
 }
-viz(Infer({method: 'MCMC', samples: 200000}, model))
+viz(Infer({method: 'forward', samples: 100000}, model))
 
 // distribution of scores given win and never hitting (2 cards total)
 var model = function() {
@@ -169,7 +172,7 @@ var model = function() {
   condition(winGame == 'True')
   score(playerEndSequence)
 }
-viz(Infer({method: 'MCMC', samples: 200000}, model))
+viz(Infer({method: 'forward', samples: 100000}, model))
 
 // probability of winning given two draws
 var model = function() {
@@ -182,7 +185,7 @@ var model = function() {
   var winGame = win(playerEndSequence, dealerEndSequence)
   winGame
 }
-viz(Infer({method: 'MCMC', samples: 200000}, model))
+viz(Infer({method: 'forward', samples: 100000}, model))
 
 // distribution of winning and score given two draws
 var model = function() {
@@ -197,7 +200,7 @@ var model = function() {
   // lol just weird workaround for graph plotting
   winGame + (playerScore < 10 ? '0' + playerScore : playerScore)
 }
-viz(Infer({method: 'MCMC', samples: 200000}, model))
+viz(Infer({method: 'forward', samples: 100000}, model))
 
 // probability of winning given three draws
 var model = function() {
@@ -210,7 +213,7 @@ var model = function() {
   var winGame = win(playerEndSequence, dealerEndSequence)
   winGame
 }
-viz(Infer({method: 'MCMC', samples: 200000}, model))
+viz(Infer({method: 'forward', samples: 100000}, model))
 
 // distribution of winning and sum of cards given three draws
 var model = function() {
@@ -225,7 +228,7 @@ var model = function() {
   // lol just weird workaround for graph plotting
   winGame + (playerScore < 10 ? '0' + playerScore : playerScore)
 }
-viz(Infer({method: 'MCMC', samples: 200000}, model))
+viz(Infer({method: 'forward', samples: 100000}, model))
 
 // probability of winning given length strategy
 var model = function() {
@@ -238,7 +241,7 @@ var model = function() {
   var winGame = win(playerEndSequence, dealerEndSequence)
   winGame
 }
-viz(Infer({method: 'MCMC', samples: 200000}, model))
+viz(Infer({method: 'forward', samples: 100000}, model))
 
 // distribution of winning and sum of cards given length strategy
 var model = function() {
@@ -253,7 +256,7 @@ var model = function() {
   // lol just weird workaround for graph plotting
   winGame + (playerScore < 10 ? '0' + playerScore : playerScore)
 }
-viz(Infer({method: 'MCMC', samples: 200000}, model))
+viz(Infer({method: 'forward', samples: 100000}, model))
 
 // probability of winning given sum strategy
 var model = function() {
@@ -266,7 +269,7 @@ var model = function() {
   var winGame = win(playerEndSequence, dealerEndSequence)
   winGame
 }
-viz(Infer({method: 'MCMC', samples: 200000}, model))
+viz(Infer({method: 'forward', samples: 100000}, model))
 
 // distribution of winning and sum of cards given sum strategy
 var model = function() {
@@ -281,9 +284,8 @@ var model = function() {
   // lol just weird workaround for graph plotting
   winGame + (playerScore < 10 ? '0' + playerScore : playerScore)
 }
-viz(Infer({method: 'MCMC', samples: 200000}, model))
+viz(Infer({method: 'forward', samples: 100000}, model))
 
-// TODO: plot graph for different thresholds
 // probability of winning given threshold strategy at 17
 var model = function() {
   initCards()
@@ -295,7 +297,7 @@ var model = function() {
   var winGame = win(playerEndSequence, dealerEndSequence)
   winGame
 }
-viz(Infer({method: 'MCMC', samples: 200000}, model))
+viz(Infer({method: 'forward', samples: 100000}, model))
 
 var model = function() {
   initCards()
@@ -308,7 +310,7 @@ var model = function() {
   var playerScore = score(playerEndSequence)
   playerScore
 }
-viz(Infer({method: 'MCMC', samples: 200000}, model))
+viz(Infer({method: 'forward', samples: 100000}, model))
 
 // distribution of winning and sum of cards given threshold strategy at 17
 var model = function() {
@@ -323,4 +325,56 @@ var model = function() {
   // lol just weird workaround for graph plotting
   winGame + (playerScore < 10 ? '0' + playerScore : playerScore)
 }
-viz(Infer({method: 'MCMC', samples: 200000}, model))
+viz(Infer({method: 'forward', samples: 100000}, model))
+
+// probability of winning given threshold strategy at 17 (dealer uses soft 17)
+var model = function() {
+  initCards()
+  var dealerSequence = getTwoCards()
+  var playerSequence = getTwoCards()
+  var playerEndSequence = generateFrom(playerSequence, thresholdStrategy(17))
+  var dealerEndSequence = generateFrom(dealerSequence, softSeventeenStrategy)
+  
+  var winGame = win(playerEndSequence, dealerEndSequence)
+  winGame
+}
+viz(Infer({method: 'forward', samples: 100000}, model))
+
+// distribution of winning and sum of cards given threshold strategy at 17
+var model = function() {
+  initCards()
+  var dealerSequence = getTwoCards()
+  var playerSequence = getTwoCards()
+  var playerEndSequence = generateFrom(playerSequence, thresholdStrategy(17))
+  var dealerEndSequence = generateFrom(dealerSequence, softSeventeenStrategy)
+  
+  var winGame = win(playerEndSequence, dealerEndSequence)
+  var playerScore = score(playerEndSequence)
+  // lol just weird workaround for graph plotting
+  winGame + (playerScore < 10 ? '0' + playerScore : playerScore)
+}
+viz(Infer({method: 'forward', samples: 100000}, model))
+
+// probability of winning given different thresholds
+var model = function(threshold) {
+  return function() {
+    initCards()
+    var dealerSequence = getTwoCards()
+    var playerSequence = getTwoCards()
+    var playerEndSequence = generateFrom(playerSequence, thresholdStrategy(threshold))
+    var dealerEndSequence = generateFrom(dealerSequence, softSeventeenStrategy)
+
+    var winGame = win(playerEndSequence, dealerEndSequence)
+    winGame
+  }
+}
+viz(Infer({method: 'forward', samples: 100000}, model(12)))
+viz(Infer({method: 'forward', samples: 100000}, model(13)))
+viz(Infer({method: 'forward', samples: 100000}, model(14)))
+viz(Infer({method: 'forward', samples: 100000}, model(15)))
+viz(Infer({method: 'forward', samples: 100000}, model(16)))
+viz(Infer({method: 'forward', samples: 100000}, model(17)))
+viz(Infer({method: 'forward', samples: 100000}, model(18)))
+viz(Infer({method: 'forward', samples: 100000}, model(19)))
+viz(Infer({method: 'forward', samples: 100000}, model(20)))
+viz(Infer({method: 'forward', samples: 100000}, model(21)))
