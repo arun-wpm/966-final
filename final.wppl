@@ -96,12 +96,19 @@ var hardSeventeenStrategy = function(sequence) {
 
 var softSeventeenStrategy = function(sequence) {
   var softScore = reduce(function(x, acc) { return (x == 11) ? acc + 1 : acc + x }, 0, sequence)
-  return (score(sequence) < 17 || (score(sequence) == 17 && softScore < 1)) ? 1 : 0
+  return (score(sequence) < 17 || (score(sequence) == 17 && softScore < 17)) ? 1 : 0
 }
 
 var thresholdStrategy = function(threshold) {
   return function(sequence) {
     return (score(sequence) < threshold) ? 1 : 0
+  }
+}
+
+var softThresholdStrategy = function(threshold) {
+  return function(sequence) {
+    var softScore = reduce(function(x, acc) { return (x == 11) ? acc + 1 : acc + x }, 0, sequence)
+    return (score(sequence) < threshold || (score(sequence) == threshold && softScore < threshold)) ? 1 : 0
   }
 }
 
@@ -130,22 +137,13 @@ var win = function(playerEndSequence, dealerEndSequence) {
       score(playerEndSequence) > score(dealerEndSequence) || // player's score is higher
       score(dealerEndSequence) > 21 // dealer busts
     )
-  ) ? 'True' : 'False'
+  ) ? 'Win' : 'Not win'
 }
 print("Win: " + win(playerEndSequence, dealerEndSequence))
 
 /**
  * MODELS
  */
-// distribution of scores after a hit (3 cards total)
-var model = function() {
-  initCards()
-  var dealerSequence = getTwoCards()
-  var playerSequence = getTwoCards()
-  score(generateFrom(playerSequence, drawThreeStrategy))
-}
-viz(Infer({method: 'forward', samples: 100000}, model))
-
 // distribution of scores given win and three draws
 var model = function() {
   initCards()
@@ -155,7 +153,6 @@ var model = function() {
   var dealerEndSequence = generateFrom(dealerSequence, hardSeventeenStrategy)
   
   var winGame = win(playerEndSequence, dealerEndSequence)
-  condition(winGame == 'True')
   score(playerEndSequence)
 }
 viz(Infer({method: 'forward', samples: 100000}, model))
@@ -169,7 +166,6 @@ var model = function() {
   var dealerEndSequence = generateFrom(dealerSequence, hardSeventeenStrategy)
   
   var winGame = win(playerEndSequence, dealerEndSequence)
-  condition(winGame == 'True')
   score(playerEndSequence)
 }
 viz(Infer({method: 'forward', samples: 100000}, model))
@@ -355,7 +351,31 @@ var model = function() {
 }
 viz(Infer({method: 'forward', samples: 100000}, model))
 
-// probability of winning given different thresholds
+// probability of winning given different thresholds (hard 17 dealer)
+var model = function(threshold) {
+  return function() {
+    initCards()
+    var dealerSequence = getTwoCards()
+    var playerSequence = getTwoCards()
+    var playerEndSequence = generateFrom(playerSequence, thresholdStrategy(threshold))
+    var dealerEndSequence = generateFrom(dealerSequence, hardSeventeenStrategy)
+
+    var winGame = win(playerEndSequence, dealerEndSequence)
+    winGame
+  }
+}
+print(Infer({method: 'forward', samples: 100000}, model(12)))
+print(Infer({method: 'forward', samples: 100000}, model(13)))
+print(Infer({method: 'forward', samples: 100000}, model(14)))
+print(Infer({method: 'forward', samples: 100000}, model(15)))
+print(Infer({method: 'forward', samples: 100000}, model(16)))
+print(Infer({method: 'forward', samples: 100000}, model(17)))
+print(Infer({method: 'forward', samples: 100000}, model(18)))
+print(Infer({method: 'forward', samples: 100000}, model(19)))
+print(Infer({method: 'forward', samples: 100000}, model(20)))
+print(Infer({method: 'forward', samples: 100000}, model(21)))
+
+// probability of winning given different thresholds (soft 17 dealer)
 var model = function(threshold) {
   return function() {
     initCards()
@@ -368,13 +388,61 @@ var model = function(threshold) {
     winGame
   }
 }
-viz(Infer({method: 'forward', samples: 100000}, model(12)))
-viz(Infer({method: 'forward', samples: 100000}, model(13)))
-viz(Infer({method: 'forward', samples: 100000}, model(14)))
-viz(Infer({method: 'forward', samples: 100000}, model(15)))
-viz(Infer({method: 'forward', samples: 100000}, model(16)))
-viz(Infer({method: 'forward', samples: 100000}, model(17)))
-viz(Infer({method: 'forward', samples: 100000}, model(18)))
-viz(Infer({method: 'forward', samples: 100000}, model(19)))
-viz(Infer({method: 'forward', samples: 100000}, model(20)))
-viz(Infer({method: 'forward', samples: 100000}, model(21)))
+print(Infer({method: 'forward', samples: 100000}, model(12)))
+print(Infer({method: 'forward', samples: 100000}, model(13)))
+print(Infer({method: 'forward', samples: 100000}, model(14)))
+print(Infer({method: 'forward', samples: 100000}, model(15)))
+print(Infer({method: 'forward', samples: 100000}, model(16)))
+print(Infer({method: 'forward', samples: 100000}, model(17)))
+print(Infer({method: 'forward', samples: 100000}, model(18)))
+print(Infer({method: 'forward', samples: 100000}, model(19)))
+print(Infer({method: 'forward', samples: 100000}, model(20)))
+print(Infer({method: 'forward', samples: 100000}, model(21)))
+
+// probability of winning given different soft thresholds (hard 17 dealer)
+var model = function(threshold) {
+  return function() {
+    initCards()
+    var dealerSequence = getTwoCards()
+    var playerSequence = getTwoCards()
+    var playerEndSequence = generateFrom(playerSequence, softThresholdStrategy(threshold))
+    var dealerEndSequence = generateFrom(dealerSequence, hardSeventeenStrategy)
+
+    var winGame = win(playerEndSequence, dealerEndSequence)
+    winGame
+  }
+}
+print(Infer({method: 'forward', samples: 100000}, model(12)))
+print(Infer({method: 'forward', samples: 100000}, model(13)))
+print(Infer({method: 'forward', samples: 100000}, model(14)))
+print(Infer({method: 'forward', samples: 100000}, model(15)))
+print(Infer({method: 'forward', samples: 100000}, model(16)))
+print(Infer({method: 'forward', samples: 100000}, model(17)))
+print(Infer({method: 'forward', samples: 100000}, model(18)))
+print(Infer({method: 'forward', samples: 100000}, model(19)))
+print(Infer({method: 'forward', samples: 100000}, model(20)))
+print(Infer({method: 'forward', samples: 100000}, model(21)))
+
+// probability of winning given different soft thresholds (soft 17 dealer)
+var model = function(threshold) {
+  return function() {
+    initCards()
+    var dealerSequence = getTwoCards()
+    var playerSequence = getTwoCards()
+    var playerEndSequence = generateFrom(playerSequence, softThresholdStrategy(threshold))
+    var dealerEndSequence = generateFrom(dealerSequence, softSeventeenStrategy)
+
+    var winGame = win(playerEndSequence, dealerEndSequence)
+    winGame
+  }
+}
+print(Infer({method: 'forward', samples: 100000}, model(12)))
+print(Infer({method: 'forward', samples: 100000}, model(13)))
+print(Infer({method: 'forward', samples: 100000}, model(14)))
+print(Infer({method: 'forward', samples: 100000}, model(15)))
+print(Infer({method: 'forward', samples: 100000}, model(16)))
+print(Infer({method: 'forward', samples: 100000}, model(17)))
+print(Infer({method: 'forward', samples: 100000}, model(18)))
+print(Infer({method: 'forward', samples: 100000}, model(19)))
+print(Infer({method: 'forward', samples: 100000}, model(20)))
+print(Infer({method: 'forward', samples: 100000}, model(21)))
