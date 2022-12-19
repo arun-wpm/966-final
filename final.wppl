@@ -144,6 +144,153 @@ print("Win: " + win(playerEndSequence, dealerEndSequence))
 /**
  * MODELS
  */
+// diferent hand configurations
+// if the player were to hits
+var model = function() {
+  initCards()
+  var dealerSequence = [3,8]
+  var playerSequence = [11, 5]
+  var playerEndSequence = generateFrom(playerSequence, drawThreeStrategy)
+  var dealerEndSequence = generateFrom(dealerSequence, softSeventeenStrategy)
+  
+  var winGame = win(playerEndSequence, dealerEndSequence)
+  winGame
+}
+viz(Infer({method: 'forward', samples: 100000}, model))
+
+var model = function() {
+  initCards()
+  var dealerSequence = [2,10]
+  var playerSequence = [11, 6]
+  var playerEndSequence = generateFrom(playerSequence, drawThreeStrategy)
+  var dealerEndSequence = generateFrom(dealerSequence, softSeventeenStrategy)
+  
+  var winGame = win(playerEndSequence, dealerEndSequence)
+  winGame
+}
+viz(Infer({method: 'forward', samples: 100000}, model))
+
+var model = function() {
+  initCards()
+  var dealerSequence = [4,9]
+  var playerSequence = [11, 7]
+  var playerEndSequence = generateFrom(playerSequence, drawThreeStrategy)
+  var dealerEndSequence = generateFrom(dealerSequence, softSeventeenStrategy)
+  
+  var winGame = win(playerEndSequence, dealerEndSequence)
+  winGame
+}
+viz(Infer({method: 'forward', samples: 100000}, model))
+
+var model = function() {
+  initCards()
+  var dealerSequence = [3,8]
+  var playerSequence = [9, 3]
+  var playerEndSequence = generateFrom(playerSequence, drawThreeStrategy)
+  var dealerEndSequence = generateFrom(dealerSequence, softSeventeenStrategy)
+  
+  var winGame = win(playerEndSequence, dealerEndSequence)
+  winGame
+}
+viz(Infer({method: 'forward', samples: 100000}, model))
+
+var model = function() {
+  initCards()
+  var dealerSequence = [2,10]
+  var playerSequence = [5, 10]
+  var playerEndSequence = generateFrom(playerSequence, drawThreeStrategy)
+  var dealerEndSequence = generateFrom(dealerSequence, softSeventeenStrategy)
+  
+  var winGame = win(playerEndSequence, dealerEndSequence)
+  winGame
+}
+viz(Infer({method: 'forward', samples: 100000}, model))
+
+var model = function() {
+  initCards()
+  var dealerSequence = [4,9]
+  var playerSequence = [8, 9]
+  var playerEndSequence = generateFrom(playerSequence, drawThreeStrategy)
+  var dealerEndSequence = generateFrom(dealerSequence, softSeventeenStrategy)
+  
+  var winGame = win(playerEndSequence, dealerEndSequence)
+  winGame
+}
+viz(Infer({method: 'forward', samples: 100000}, model))
+
+// if the player were to stand
+var model = function() {
+  initCards()
+  var dealerSequence = [3,8]
+  var playerSequence = [11, 5]
+  var playerEndSequence = generateFrom(playerSequence, drawTwoStrategy)
+  var dealerEndSequence = generateFrom(dealerSequence, softSeventeenStrategy)
+  
+  var winGame = win(playerEndSequence, dealerEndSequence)
+  winGame
+}
+viz(Infer({method: 'forward', samples: 100000}, model))
+
+var model = function() {
+  initCards()
+  var dealerSequence = [2,10]
+  var playerSequence = [11, 6]
+  var playerEndSequence = generateFrom(playerSequence, drawTwoStrategy)
+  var dealerEndSequence = generateFrom(dealerSequence, softSeventeenStrategy)
+  
+  var winGame = win(playerEndSequence, dealerEndSequence)
+  winGame
+}
+viz(Infer({method: 'forward', samples: 100000}, model))
+
+var model = function() {
+  initCards()
+  var dealerSequence = [4,9]
+  var playerSequence = [11, 7]
+  var playerEndSequence = generateFrom(playerSequence, drawTwoStrategy)
+  var dealerEndSequence = generateFrom(dealerSequence, softSeventeenStrategy)
+  
+  var winGame = win(playerEndSequence, dealerEndSequence)
+  winGame
+}
+viz(Infer({method: 'forward', samples: 100000}, model))
+
+var model = function() {
+  initCards()
+  var dealerSequence = [3,8]
+  var playerSequence = [9, 3]
+  var playerEndSequence = generateFrom(playerSequence, drawTwoStrategy)
+  var dealerEndSequence = generateFrom(dealerSequence, softSeventeenStrategy)
+  
+  var winGame = win(playerEndSequence, dealerEndSequence)
+  winGame
+}
+viz(Infer({method: 'forward', samples: 100000}, model))
+
+var model = function() {
+  initCards()
+  var dealerSequence = [2,10]
+  var playerSequence = [5, 10]
+  var playerEndSequence = generateFrom(playerSequence, drawTwoStrategy)
+  var dealerEndSequence = generateFrom(dealerSequence, softSeventeenStrategy)
+  
+  var winGame = win(playerEndSequence, dealerEndSequence)
+  winGame
+}
+viz(Infer({method: 'forward', samples: 100000}, model))
+
+var model = function() {
+  initCards()
+  var dealerSequence = [4,9]
+  var playerSequence = [8, 9]
+  var playerEndSequence = generateFrom(playerSequence, drawTwoStrategy)
+  var dealerEndSequence = generateFrom(dealerSequence, softSeventeenStrategy)
+  
+  var winGame = win(playerEndSequence, dealerEndSequence)
+  winGame
+}
+viz(Infer({method: 'forward', samples: 100000}, model))
+
 // distribution of scores given win and three draws
 var model = function() {
   initCards()
